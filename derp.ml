@@ -42,15 +42,15 @@ module Grammar = struct
                 Epsilon | Empty | Token _ -> String.Set.empty
                 |NT other -> String.Set.add acc other
                 |Cat (l, r) | Alt (l, r) -> get_referenced_nts (get_referenced_nts acc l) r in
-            let f reached_nts = 
-                String.Set.fold reached_nts ~init:String.Set.empty 
-                ~f:(fun new_nts nt_name -> 
-                    match try_get nt_name grm with
-                        None -> new_nts
-                        |Some rule -> 
-                            get_referenced_nts String.Set.empty (!!rule) 
-                            |> String.Set.union new_nts) in
-            set_fix f (String.Set.of_list initial_nt)
+        let f reached_nts = 
+            String.Set.fold reached_nts ~init:String.Set.empty 
+            ~f:(fun new_nts nt_name -> 
+                match try_get nt_name grm with
+                    None -> new_nts
+                    |Some rule -> 
+                        get_referenced_nts String.Set.empty (!!rule) 
+                        |> String.Set.union new_nts) in
+        set_fix f (String.Set.of_list initial_nt)
     
     let string_of_rule rule = 
         let par x = "(" ^ x ^ ")" in
@@ -81,7 +81,8 @@ module Grammar = struct
                 None -> String.Set.add acc other
                 |Some _ -> acc in
         loop String.Set.empty rule
-
+    
+    (* determine parse success or not *)
     let compute_nullable grm = 
         let rec loop_one nt_set rule = 
             match rule with
@@ -114,7 +115,8 @@ module Grammar = struct
 
     let get_prev_name token next_name = 
         String.slice next_name 0 (String.length token + 1)
-
+    
+    (* nullables is the memoization for NT rules *)
     let derive_with token grm nullables = 
         let start_name = fst grm in
         let rule = get start_name grm in
@@ -170,4 +172,24 @@ module Grammar = struct
             String.Map.fold (snd grm) ~init:first_map 
             ~f:(fun ~key:name ~data:d_rule acc -> step acc name (!!d_rule)) in
         fix first_step String.Map.empty
+    
+    (* str is a list of token strings *)
+     let recognize str grm = 
+        let rec loop g l = match l with
+            [] -> not (Set.is_empty (compute_nullable g))
+            |h :: t -> loop (derive h g) t
+        in loop grm str
+    
+    (* quick add to a string map *)
+
+    let sadd ~key:k ~data:d m = String.Map.add m ~key:k ~data:d
+    let e = String.Map.empty
+
+    let m = 
+    e
+    |> sadd ~key:"B" ~data:(Rule(Alt(Token "0", Token "1")))
+    |> sadd ~key:"S" ~data:(Rule(Alt(Epsilon, Cat(NT "B", NT "S"))))
+
+    let g : grm = "S", m
+
 end
