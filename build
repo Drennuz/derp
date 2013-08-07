@@ -1,0 +1,1 @@
+ocamlfind ocamlc -package core,sexplib.syntax -syntax camlp4o -thread -c derp.ml
