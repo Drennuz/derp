@@ -180,16 +180,16 @@ module Grammar = struct
             |h :: t -> loop (derive h g) t
         in loop grm str
     
-    (* quick add to a string map *)
+    (* testing *)
 
-    let sadd ~key:k ~data:d m = String.Map.add m ~key:k ~data:d
+    let add_rule ~key:k ~data:d m = String.Map.add m ~key:k ~data:d
     let e = String.Map.empty
 
-    let m = 
+    let test_map = 
     e
-    |> sadd ~key:"B" ~data:(Rule(Alt(Token "0", Token "1")))
-    |> sadd ~key:"S" ~data:(Rule(Alt(Epsilon, Cat(NT "B", NT "S"))))
+    |> add_rule ~key:"B" ~data:(Rule(Alt(Token "0", Token "1")))
+    |> add_rule ~key:"S" ~data:(Rule(Alt(Epsilon, Cat(NT "B", NT "S"))))
 
-    let g : grm = "S", m
+    let test_grammar : grm = "S", test_map
 
 end
