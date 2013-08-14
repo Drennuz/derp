@@ -36,7 +36,6 @@ module Grammar = struct
 
     (* get all NTs reachable from the given list of initial_nt *)
     let get_reachable_nts initial_nt grm = 
-        let rule_map = snd grm in
         let rec get_referenced_nts acc rule = 
             match rule with
                 Epsilon | Empty | Token _ -> String.Set.empty
@@ -71,6 +70,7 @@ module Grammar = struct
         String.Map.fold rules ~init:("start: " ^ start_name) 
             ~f:(fun ~key:rule_name ~data:rule str -> rule_name ^ " -> " ^ (string_of_rule rule) ^ "\n" ^ str)
     
+    (* undefined rule *)
     let get_undefined_nts rule grm = 
         let rec loop acc rule = 
             match rule with
@@ -114,9 +114,10 @@ module Grammar = struct
         "d" ^ token ^ name
 
     let get_prev_name token next_name = 
-        String.slice next_name 0 (String.length token + 1)
+        let to_trash = String.length token + 1 in
+        String.slice next_name to_trash (String.length next_name)
     
-    (* nullables is the memoization for NT rules *)
+    (* need to recursively derive undefined *)
     let derive_with token grm nullables = 
         let start_name = fst grm in
         let rule = get start_name grm in
@@ -130,17 +131,45 @@ module Grammar = struct
             |Alt (l, r) -> Alt(derive_rule l, derive_rule r)
             |NT other -> NT (get_next_name token other) in
         let rule' = derive_rule (!!rule) in
-        let undefined = get_undefined_nts rule' grm in
+        let undefined = get_undefined_nts rule' grm in (* only one level *)
         let rules' = if not (String.Set.mem undefined new_name) then
             String.Map.add (snd grm) ~key:new_name ~data:(make_derive rule')
-            else snd grm in
+            else snd grm in (* add non-undefined rules *)
         (new_name, String.Set.fold undefined ~init:rules' 
             ~f:(fun acc_rules name -> let prev_name = get_prev_name token name in
-            String.Map.add acc_rules ~key:name ~data:(make_derive (derive_rule (!!(get prev_name grm))))))
+            String.Map.add acc_rules ~key:name ~data:(make_derive (derive_rule (!!(get prev_name grm)))))) (* derive all undefined and add to rules'*)
+    
+    let all_undefined grm = 
+        String.Map.fold (snd grm) ~init:String.Set.empty ~f:(fun ~key:k ~data:d set -> String.Set.union set (get_undefined_nts (!!d) grm))
+    
+    (* disintegrate name into (token, prev_name), assuming token length 1 *)
+    let disint name = (String.slice name 1 2, String.slice name 2 (String.length name))
+ 
+    let rec derive_rule_s rule token nullables = 
+        match rule with
+        Epsilon -> Empty
+        |Empty -> Empty
+        |Token tok -> if tok = token then Epsilon else Empty
+        |Cat (l, r) -> if is_nullable_rule l nullables then Alt(Cat(derive_rule_s l token nullables, r), derive_rule_s r token nullables) else Cat(derive_rule_s l token nullables, r)
+        |Alt (l, r) -> Alt(derive_rule_s l token nullables, derive_rule_s r token nullables)
+        |NT other -> NT (get_next_name token other)
+   
+    (* recursively fill all undefined ones *)
+    let rec fill grm = 
+        let u = all_undefined grm and nullables = compute_nullable grm in
+        if Set.is_empty u then grm
+        else (
+            let start = fst grm and rules = snd grm in
+            let m = String.Set.fold u ~init:rules ~f:(fun ruleset name -> let (token, prev_name) = disint name in String.Map.add ruleset ~key:name ~data:(make_derive (derive_rule_s (!! (get prev_name grm)) token nullables))) 
+            in
+            let newg = (start, m) in fill newg
+        )
+    
 
     let derive token grm = 
         let nullables = compute_nullable grm in
-        derive_with token grm nullables
+        let g1 = derive_with token grm nullables in
+        fill g1
 
     (* compute the FIRST-set for grm *)
 
@@ -176,7 +205,7 @@ module Grammar = struct
     (* str is a list of token strings *)
      let recognize str grm = 
         let rec loop g l = match l with
-            [] -> not (Set.is_empty (compute_nullable g))
+            [] -> Set.mem (compute_nullable g) (fst g)
             |h :: t -> loop (derive h g) t
         in loop grm str
     
