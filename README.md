@@ -15,6 +15,9 @@ The main function to use is the `recognize` function, which takes in a list of s
 ```ocaml
 > recognize ["0";"1";"0"] test_grammar
 - : true
+
+> recognize ["0";"2"] test_grammar
+- : false
 ```
 
 Variable-length tokens are supported.
