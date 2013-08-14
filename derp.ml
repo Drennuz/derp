@@ -1,7 +1,6 @@
 open Core.Std
 
 module Grammar = struct
-    
     let set_fix f cur = 
         let rec loop cur = 
             let next = f cur in
@@ -111,13 +110,12 @@ module Grammar = struct
         loop rule
 
     let get_next_name token name = 
-        "d" ^ token ^ name
+        "d" ^ "`" ^ token ^ "`" ^ name
 
     let get_prev_name token next_name = 
-        let to_trash = String.length token + 1 in
+        let to_trash = String.length token + 3 in
         String.slice next_name to_trash (String.length next_name)
     
-    (* need to recursively derive undefined *)
     let derive_with token grm nullables = 
         let start_name = fst grm in
         let rule = get start_name grm in
@@ -142,9 +140,13 @@ module Grammar = struct
     let all_undefined grm = 
         String.Map.fold (snd grm) ~init:String.Set.empty ~f:(fun ~key:k ~data:d set -> String.Set.union set (get_undefined_nts (!!d) grm))
     
-    (* disintegrate name into (token, prev_name), assuming token length 1 *)
-    let disint name = (String.slice name 1 2, String.slice name 2 (String.length name))
- 
+    (* disintegrate name into (token, prev_name)*)
+    
+    let disint name = 
+        let subname = String.slice name 2 (String.length name) in
+        let i = String.index_exn subname '`' in
+        (String.slice subname 0 i, String.slice subname (i+1) (String.length subname))
+
     let rec derive_rule_s rule token nullables = 
         match rule with
         Epsilon -> Empty
