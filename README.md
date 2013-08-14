@@ -10,12 +10,11 @@ source build
 
 To use the parser, you need to create a grammar first. An example can be found in the testing section at the bottom of the source file. `test_grammar` is a recursive grammar of continuous "0" or "1"s.
 
-The main function to use is the `recognize` function, which takes in a list of strings and returns true/false as parsing results. 
+The main function to use is the `recognize` function, which takes in a list of string tokens and returns true/false as parsing results. 
 
 ```ocaml
 > recognize ["0";"1";"0"] test_grammar
 - : true
 ```
 
-Currently it only supports single-char strings. 
-
+Variable-length tokens are supported.
