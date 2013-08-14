@@ -1,6 +1,6 @@
 OCaml implementation of parsing with derivatives
 
-It is a work in progress with some known/unknown bugs. Right now it only returns yes/no for parsing, next step will be to build a syntax tree/forest. 
+It is a work in progress. Right now it only returns yes/no for parsing, next step will be to build a syntax tree/forest. 
 
 To build, run:
 
