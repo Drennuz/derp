@@ -116,26 +116,28 @@ module Grammar = struct
         let to_trash = String.length token + 3 in
         String.slice next_name to_trash (String.length next_name)
     
+    (* derive a single rule *)
+    let rec derive_rule_s rule token nullables = 
+        match rule with
+        Epsilon -> Empty
+        |Empty -> Empty
+        |Token tok -> if tok = token then Epsilon else Empty
+        |Cat (l, r) -> if is_nullable_rule l nullables then Alt(Cat(derive_rule_s l token nullables, r), derive_rule_s r token nullables) else Cat(derive_rule_s l token nullables, r)
+        |Alt (l, r) -> Alt(derive_rule_s l token nullables, derive_rule_s r token nullables)
+        |NT other -> NT (get_next_name token other)
+
     let derive_with token grm nullables = 
         let start_name = fst grm in
         let rule = get start_name grm in
         let new_name = get_next_name token start_name in
-        let rec derive_rule rule = 
-            match rule with
-            Epsilon -> Empty
-            |Empty -> Empty
-            |Token tok -> if tok = token then Epsilon else Empty
-            |Cat (l, r) -> if is_nullable_rule l nullables then Alt(Cat(derive_rule l, r), derive_rule r) else Cat(derive_rule l, r)
-            |Alt (l, r) -> Alt(derive_rule l, derive_rule r)
-            |NT other -> NT (get_next_name token other) in
-        let rule' = derive_rule (!!rule) in
+        let rule' = derive_rule_s (!!rule) token nullables in
         let undefined = get_undefined_nts rule' grm in (* only one level *)
         let rules' = if not (String.Set.mem undefined new_name) then
             String.Map.add (snd grm) ~key:new_name ~data:(make_derive rule')
             else snd grm in (* add non-undefined rules *)
         (new_name, String.Set.fold undefined ~init:rules' 
             ~f:(fun acc_rules name -> let prev_name = get_prev_name token name in
-            String.Map.add acc_rules ~key:name ~data:(make_derive (derive_rule (!!(get prev_name grm)))))) (* derive all undefined and add to rules'*)
+            String.Map.add acc_rules ~key:name ~data:(make_derive (derive_rule_s (!!(get prev_name grm)) token nullables )))) (* derive all undefined and add to rules'*)
     
     let all_undefined grm = 
         String.Map.fold (snd grm) ~init:String.Set.empty ~f:(fun ~key:k ~data:d set -> String.Set.union set (get_undefined_nts (!!d) grm))
@@ -147,15 +149,6 @@ module Grammar = struct
         let i = String.index_exn subname '`' in
         (String.slice subname 0 i, String.slice subname (i+1) (String.length subname))
 
-    let rec derive_rule_s rule token nullables = 
-        match rule with
-        Epsilon -> Empty
-        |Empty -> Empty
-        |Token tok -> if tok = token then Epsilon else Empty
-        |Cat (l, r) -> if is_nullable_rule l nullables then Alt(Cat(derive_rule_s l token nullables, r), derive_rule_s r token nullables) else Cat(derive_rule_s l token nullables, r)
-        |Alt (l, r) -> Alt(derive_rule_s l token nullables, derive_rule_s r token nullables)
-        |NT other -> NT (get_next_name token other)
-   
     (* recursively fill all undefined ones *)
     let rec fill grm = 
         let u = all_undefined grm and nullables = compute_nullable grm in
@@ -173,7 +166,7 @@ module Grammar = struct
         let g1 = derive_with token grm nullables in
         fill g1
 
-    (* compute the FIRST-set for grm *)
+    (* compute the FIRST-set for grm; not used for now *)
 
     let compute_first_with grm nullables = 
         let fold_first_maps map_left map_right = 
@@ -217,9 +210,9 @@ module Grammar = struct
     let e = String.Map.empty
 
     let test_map = 
-    e
-    |> add_rule ~key:"B" ~data:(Rule(Alt(Token "0", Token "1")))
-    |> add_rule ~key:"S" ~data:(Rule(Alt(Epsilon, Cat(NT "B", NT "S"))))
+        e
+        |> add_rule ~key:"B" ~data:(Rule(Alt(Token "0", Token "1")))
+        |> add_rule ~key:"S" ~data:(Rule(Alt(Epsilon, Cat(NT "B", NT "S"))))
 
     let test_grammar : grm = "S", test_map
 
